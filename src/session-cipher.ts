@@ -67,8 +67,8 @@ export class SessionCipher {
 
         const ciphertext = await Internal.crypto.encrypt(keys[0], buffer, keys[2].slice(0, 16))
         msg.ciphertext = new Uint8Array(ciphertext)
+        console.log(msg)
         const encodedMsg = WhisperMessage.encode(msg).finish()
-
         const macInput = new Uint8Array(encodedMsg.byteLength + 33 * 2 + 1)
         macInput.set(new Uint8Array(ourIdentityKey.pubKey))
         macInput.set(new Uint8Array(session.indexInfo.remoteIdentityKey), 33)
@@ -241,8 +241,7 @@ export class SessionCipher {
             const session = record.getSessionByBaseKey(uint8ArrayToArrayBuffer(preKeyProto.baseKey))
             if (!session) {
                 throw new Error(
-                    `unable to find session for base key ${base64.fromByteArray(preKeyProto.baseKey)}, ${
-                        preKeyProto.baseKey.byteLength
+                    `unable to find session for base key ${base64.fromByteArray(preKeyProto.baseKey)}, ${preKeyProto.baseKey.byteLength
                     }`
                 )
             }

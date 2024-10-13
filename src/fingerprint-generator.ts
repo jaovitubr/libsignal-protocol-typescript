@@ -1,7 +1,7 @@
 import { FingerprintGeneratorType } from './'
 import * as utils from './helpers'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const msrcrypto = require('../lib/msrcrypto')
+const msrcrypto = require('../msrcrypto')
 
 export class FingerprintGenerator implements FingerprintGeneratorType {
     static VERSION = 0
