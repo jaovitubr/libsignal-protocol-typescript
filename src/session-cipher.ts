@@ -10,10 +10,11 @@ import { SessionRecord } from './session-record'
 import { SessionLock } from './session-lock'
 import { SessionBuilder } from './session-builder'
 import { uint8ArrayToArrayBuffer } from './helpers'
+import { hexToArrayBuffer } from './__test-utils__/utils'
 
 export interface MessageType {
     type: number
-    body?: string
+    body?: Uint8Array
     registrationId?: number
 }
 export class SessionCipher {
@@ -67,7 +68,7 @@ export class SessionCipher {
 
         const ciphertext = await Internal.crypto.encrypt(keys[0], buffer, keys[2].slice(0, 16))
         msg.ciphertext = new Uint8Array(ciphertext)
-        console.log(msg)
+
         const encodedMsg = WhisperMessage.encode(msg).finish()
         const macInput = new Uint8Array(encodedMsg.byteLength + 33 * 2 + 1)
         macInput.set(new Uint8Array(ourIdentityKey.pubKey))
@@ -111,7 +112,10 @@ export class SessionCipher {
 
             preKeyMsg.message = encodedMsgWithMAC
             const encodedPreKeyMsg = PreKeyWhisperMessage.encode(preKeyMsg).finish()
-            const result = String.fromCharCode((3 << 4) | 3) + util.uint8ArrayToString(encodedPreKeyMsg)
+            const result = new Uint8Array([
+                (3 << 4) | 3,
+                ...encodedPreKeyMsg,
+            ]);
             return {
                 type: 3,
                 body: result,
@@ -120,7 +124,7 @@ export class SessionCipher {
         } else {
             return {
                 type: 1,
-                body: util.uint8ArrayToString(encodedMsgWithMAC),
+                body: encodedMsgWithMAC,
                 registrationId: session.registrationId,
             }
         }
@@ -186,6 +190,7 @@ export class SessionCipher {
         await this.fillMessageKeys(chain, counter)
     }
 
+    // remoteKey = message.ephemeralKey
     private async calculateRatchet(session: SessionType, remoteKey: ArrayBuffer, sending: boolean) {
         const ratchet = session.currentRatchet
 
@@ -390,6 +395,7 @@ export class SessionCipher {
         return plaintext
     }
 
+    // remoteKey = message.ephemeralKey
     async maybeStepRatchet(session: SessionType, remoteKey: ArrayBuffer, previousCounter: number): Promise<void> {
         const remoteKeyString = base64.fromByteArray(new Uint8Array(remoteKey))
         if (session.chains[remoteKeyString] !== undefined) {
@@ -411,15 +417,19 @@ export class SessionCipher {
             })
         }
 
-        await this.calculateRatchet(session, remoteKey, false)
+        await this.calculateRatchet(session, remoteKey, false) // recebimento
         const previousRatchetKey = base64.fromByteArray(new Uint8Array(ratchet.ephemeralKeyPair.pubKey))
         if (session.chains[previousRatchetKey] !== undefined) {
             ratchet.previousCounter = session.chains[previousRatchetKey].chainKey.counter
             delete session.chains[previousRatchetKey]
         }
         const keyPair = await Internal.crypto.createKeyPair()
+        // const keyPair2 = {
+        //     pubKey: hexToArrayBuffer("05c49f0861113f56012cc1b030b21046f4e1a68f688f67e3a050db9bb3a429c523"),
+        //     privKey: hexToArrayBuffer("604d4f08b2a8aa8ce31c13e9ef6599e4fa61ad7c75bf51d0b5ac815cbc7dab54"),
+        // }
         ratchet.ephemeralKeyPair = keyPair
-        await this.calculateRatchet(session, remoteKey, true)
+        await this.calculateRatchet(session, remoteKey, true) // envio
         ratchet.lastRemoteEphemeralKey = remoteKey
     }
 

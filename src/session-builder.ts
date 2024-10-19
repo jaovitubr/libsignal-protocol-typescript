@@ -126,7 +126,6 @@ export class SessionBuilder {
             sharedSecret.set(new Uint8Array(ecRes4), 32 * 4)
         }
 
-        console.log("encMaterial", sharedSecret)
         const masterKey = await Internal.HKDF(uint8ArrayToArrayBuffer(sharedSecret), new ArrayBuffer(32), 'WhisperText')
 
         const session: SessionType = {
@@ -150,16 +149,10 @@ export class SessionBuilder {
         session.indexInfo.baseKey = EKa.pubKey
         session.indexInfo.baseKeyType = BaseKeyType.OURS
         const ourSendingEphemeralKey = await Internal.crypto.createKeyPair()
+        // session.currentRatchet.ephemeralKeyPair = EKa
         session.currentRatchet.ephemeralKeyPair = ourSendingEphemeralKey
 
-        console.log("beforeRootKey", new Uint8Array(session.currentRatchet.rootKey))
         await this.calculateSendingRatchet(session, SPKb)
-
-        console.log("session", {
-            session,
-            rootKey: new Uint8Array(session.currentRatchet.rootKey),
-            chainKey: new Uint8Array(Object.values(session.chains)[0].chainKey.key!)
-        })
 
         return session
     }
@@ -167,8 +160,8 @@ export class SessionBuilder {
     // Arguments map to the X3DH spec: https://signal.org/docs/specifications/x3dh/#keys
     // We are Bob now.
     startSessionWthPreKeyMessage = async (
-        OPKb: KeyPairType<ArrayBuffer> | undefined,
-        SPKb: KeyPairType<ArrayBuffer>,
+        OPKb: KeyPairType<ArrayBuffer> | undefined, // preKeyPair
+        SPKb: KeyPairType<ArrayBuffer>, // signedPreKeyPair
         message: PreKeyWhisperMessage
     ): Promise<SessionType> => {
         const IKb = await this.storage.getIdentityKeyPair()
@@ -208,7 +201,7 @@ export class SessionBuilder {
             const ecRes4 = await Internal.crypto.ECDHE(EKa, OPKb.privKey)
             sharedSecret.set(new Uint8Array(ecRes4), 32 * 4)
         }
-        console.log("decMaterial", sharedSecret)
+
         const masterKey = await Internal.HKDF(uint8ArrayToArrayBuffer(sharedSecret), new ArrayBuffer(32), 'WhisperText')
 
         const session: SessionType = {
@@ -236,6 +229,7 @@ export class SessionBuilder {
         return session
     }
 
+    // session, SPKb
     async calculateSendingRatchet(session: SessionType, remoteKey: ArrayBuffer): Promise<void> {
         const ratchet = session.currentRatchet
         if (!ratchet.ephemeralKeyPair) {
@@ -251,12 +245,6 @@ export class SessionBuilder {
         const sharedSecret = await Internal.crypto.ECDHE(remoteKey, ephPrivKey)
         const masterKey = await Internal.HKDF(sharedSecret, rootKey, 'WhisperRatchet')
 
-        console.log({
-            sharedSecret: new Uint8Array(sharedSecret),
-            ephPrivKey: new Uint8Array(ephPrivKey),
-            newChainKey: new Uint8Array(masterKey[1]),
-            newRootKey: new Uint8Array(masterKey[0]),
-        })
         session.chains[ephPubKey] = {
             messageKeys: {},
             chainKey: { counter: -1, key: masterKey[1] },

@@ -1,0 +1,31 @@
+{
+  "cSpell.ignoreWords": [
+    "KEYPAIR",
+    "WHATSAPP",
+    "libsignal",
+    "mediatype",
+    "pushname",
+    "pushnames",
+    "qrcode",
+    "skey",
+    "smba",
+    "smbi",
+    "usync",
+    "wweb"
+  ],
+  "cSpell.words": [
+    "AESCBC",
+    "bufbuild",
+    "IXML",
+    "jids",
+    "pkmsg",
+    "prekey",
+    "protobuf",
+    "skmsg",
+    "superadmin",
+    "syncd",
+    "Syncd",
+    "unsynced",
+    "whatsapp"
+  ],
+}
