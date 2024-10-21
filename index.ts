@@ -1,6 +1,7 @@
 import { DeviceType, KeyPairType, PreKeyPairType, SessionBuilder, SessionCipher, SignalProtocolAddress, SignedPreKeyPairType } from './src'
 import { SignalProtocolStore } from './src/__test__/storage-type'
 import { binaryStringToArrayBuffer, uint8ArrayToArrayBuffer } from './src/helpers'
+import * as base64 from 'base64-js'
 
 const ALICE_ADDRESS = new SignalProtocolAddress('+14151111111', 1)
 const BOB_ADDRESS = new SignalProtocolAddress('+14152222222', 1)
@@ -85,44 +86,41 @@ const bobStore = new SignalProtocolStore();
   const aliceSessionCipher = new SessionCipher(aliceStore, BOB_ADDRESS)
   const bobSessionCipher = new SessionCipher(bobStore, ALICE_ADDRESS)
 
-  const aliceBobSession1 = await aliceSessionCipher.getRecord(BOB_ADDRESS.toString());
-  const bobAliceSession1 = await bobSessionCipher.getRecord(ALICE_ADDRESS.toString());
-
   // Alice envia para Bob uma PreKeyMessage informando a prekey utilizada para criptografar
   const aliceMessage = binaryStringToArrayBuffer("Hello world from Alice!")
-  const ciphertext = await aliceSessionCipher.encrypt(aliceMessage)
+  const ciphertext1 = (await aliceSessionCipher.encrypt(aliceMessage)).body!;
+  await bobSessionCipher.decryptPreKeyWhisperMessage(ciphertext1, 'binary')
 
-  const aliceBobSession11 = await aliceSessionCipher.getRecord(BOB_ADDRESS.toString());
-
-  // Bob pega a preKey utilizada e salva como a chain de recebimento de Alice
-  // Bob cria uma chain de envio
-  // > Aqui Bob tem a sessão de envio e recebimento de Alice
-  const plaintext = await bobSessionCipher.decryptPreKeyWhisperMessage(ciphertext.body!, 'binary')
-  console.log("Bob received msg from Alice", plaintext);
-
-  const aliceBobSession2 = await aliceSessionCipher.getRecord(BOB_ADDRESS.toString());
-  const bobAliceSession2 = await bobSessionCipher.getRecord(ALICE_ADDRESS.toString());
-
-  // Bob envia para Alice uma SignalMessage informando a ephemeralKey da chain
   const bobMessage = binaryStringToArrayBuffer("Hello world from Bob!")
-  const ciphertext2 = await bobSessionCipher.encrypt(bobMessage)
+  const ciphertextbob = (await bobSessionCipher.encrypt(bobMessage)).body!;
+  await aliceSessionCipher.decryptWhisperMessage(ciphertextbob, 'binary')
 
-  const bobAliceSession22 = await bobSessionCipher.getRecord(ALICE_ADDRESS.toString());
-  // Aqui Alice pega a SignalMessage e monta a sessão de recebimento
-  // Aqui Alice tem a sessão de envio e recebimento de alice
-  const plaintext2 = await aliceSessionCipher.decryptWhisperMessage(ciphertext2.body!, 'binary')
+  // alice > bob
+  const ciphertext4 = (await aliceSessionCipher.encrypt(aliceMessage)).body!;
+  const ciphertext5 = (await aliceSessionCipher.encrypt(aliceMessage)).body!;
+  await bobSessionCipher.decryptWhisperMessage(ciphertext4, 'binary')
+  // const aliceSession2 = await getSession(bobSessionCipher, ALICE_ADDRESS.toString());
 
-  const aliceBobSession3 = await aliceSessionCipher.getRecord(BOB_ADDRESS.toString());
-  const bobAliceSession3 = await bobSessionCipher.getRecord(ALICE_ADDRESS.toString());
+  // bob > alice
+  const ciphertext6 = (await bobSessionCipher.encrypt(bobMessage)).body!;
+  await aliceSessionCipher.decryptWhisperMessage(ciphertext6, 'binary')
 
-  const ciphertext22 = await bobSessionCipher.encrypt(bobMessage)
-  const plaintext22 = await aliceSessionCipher.decryptWhisperMessage(ciphertext22.body!, 'binary')
+  // alice > bob
+  const ciphertext7 = (await aliceSessionCipher.encrypt(aliceMessage)).body!;
+  // aqui ele calcula e skipa o messageKey 
+  await bobSessionCipher.decryptWhisperMessage(ciphertext7, 'binary')
+  const aliceSession4 = await getSession(bobSessionCipher, ALICE_ADDRESS.toString());
 
-  const ciphertext33 = await bobSessionCipher.encrypt(bobMessage)
-  const plaintext33 = await aliceSessionCipher.decryptWhisperMessage(ciphertext33.body!, 'binary')
+  // ele nem calculou ratchet, só pegou a messageKey que já estava skipada na chain
+  await bobSessionCipher.decryptWhisperMessage(ciphertext5, 'binary')
 
   console.log(".")
 })()
+
+async function getSession(sessionCIpher: SessionCipher, addr: string) {
+  const sessions = (await sessionCIpher.getRecord(addr))!.sessions;
+  return Object.values(sessions)[0];
+}
 
 function hexToArrayBuffer(hex: string) {
   return uint8ArrayToArrayBuffer(Buffer.from(hex, "hex"))

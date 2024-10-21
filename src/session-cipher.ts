@@ -396,6 +396,7 @@ export class SessionCipher {
     }
 
     // remoteKey = message.ephemeralKey
+    // previousCounter = message.previousCounter
     async maybeStepRatchet(session: SessionType, remoteKey: ArrayBuffer, previousCounter: number): Promise<void> {
         const remoteKeyString = base64.fromByteArray(new Uint8Array(remoteKey))
         if (session.chains[remoteKeyString] !== undefined) {
@@ -420,15 +421,17 @@ export class SessionCipher {
         await this.calculateRatchet(session, remoteKey, false) // recebimento
         const previousRatchetKey = base64.fromByteArray(new Uint8Array(ratchet.ephemeralKeyPair.pubKey))
         if (session.chains[previousRatchetKey] !== undefined) {
+            console.log("OLD EPH", base64.fromByteArray(new Uint8Array(ratchet.ephemeralKeyPair.pubKey)))
+            console.log("OLD COUNTER", session.chains[previousRatchetKey].chainKey.counter)
+
+            console.log("NEW EPH", remoteKeyString)
             ratchet.previousCounter = session.chains[previousRatchetKey].chainKey.counter
             delete session.chains[previousRatchetKey]
         }
+
         const keyPair = await Internal.crypto.createKeyPair()
-        // const keyPair2 = {
-        //     pubKey: hexToArrayBuffer("05c49f0861113f56012cc1b030b21046f4e1a68f688f67e3a050db9bb3a429c523"),
-        //     privKey: hexToArrayBuffer("604d4f08b2a8aa8ce31c13e9ef6599e4fa61ad7c75bf51d0b5ac815cbc7dab54"),
-        // }
         ratchet.ephemeralKeyPair = keyPair
+
         await this.calculateRatchet(session, remoteKey, true) // envio
         ratchet.lastRemoteEphemeralKey = remoteKey
     }
